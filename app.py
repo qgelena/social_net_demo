@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 from flask_jwt import JWT, jwt_required, current_identity
 from werkzeug.security import safe_str_cmp
 
+import sqlalchemy as sa
 import sqlalchemy.exc as sqlexc
 
 from models import db
@@ -115,8 +116,38 @@ def unlike_post(post_id):
     db.session.commit()
 
     return jsonify({"status": "ok"})
-'''
+
 @app.route('/analytics', methods=['GET'])
+def analytics():
+    try:
+        date_from = request.args['date_from']
+        date_to = request.args['date_to']
+
+        date_from = datetime.strptime(date_from, '%Y-%m-%d').date()
+        date_to = datetime.strptime(date_to, '%Y-%m-%d').date()
+    except (KeyError, ValueError) as e:
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+        }), 400
+
+    Like = models.Like
+    q = db.session \
+        .query(sa.func.date(Like.timestamp), sa.func.count()) \
+        .filter(Like.timestamp.between(date_from, date_to)) \
+        .group_by(sa.func.date(Like.timestamp))
+    # print('SQL: \n%s\n' % q)
+    data = q.all()
+
+    stats = {
+        "status": "ok",
+        "date_from": date_from,
+        "date_to": date_to,
+        "likes count per day": data
+    }
+    return jsonify(stats)
+
+'''
 @app.route('/activity', methods=['GET'])
 ''' 
 
