@@ -93,14 +93,29 @@ def like_post(post_id):
     user_id = current_identity.id
     timestamp = datetime.now()
 
+    if models.Post.query.get(post_id) is None:
+        return jsonify({"status": "error", "error": "post not found"}), 404
+
     like = models.Like(user_id, post_id, timestamp)
     db.session.add(like)
     db.session.commit()
     
     return jsonify({"status": "ok"})
 
-'''
 @app.route('/unlike/<post_id>', methods=['POST'])
+@jwt_required()
+def unlike_post(post_id):
+    user_id = current_identity.id
+
+    like = models.Like.query.filter_by(user_id=user_id, post_id=post_id).first()
+    if like is None:
+        return jsonify({"status": "error", "error": "not found"}), 404
+
+    db.session.delete(like)
+    db.session.commit()
+
+    return jsonify({"status": "ok"})
+'''
 @app.route('/analytics', methods=['GET'])
 @app.route('/activity', methods=['GET'])
 ''' 
