@@ -26,11 +26,15 @@ db.init_app(app)
 def authenticate(username, password):
     user = models.User.query.filter_by(username=username).first()
     if user and safe_str_cmp(user.password.encode('utf8'), password.encode('utf8')):
+        user.last_login_time = datetime.now()
+        db.session.commit()
         return user
 
 def identity(payload):
     user_id = payload['identity']
-    return models.User.query.get(user_id)
+    user = models.User.query.get(user_id)
+    user.last_request_time = datetime.now()
+    return user
 
 app.config['SECRET_KEY'] = 'we-dont-care-but-this-is-supposed-to-be-strong-salt'
 app.config['JWT_AUTH_URL_RULE'] = '/login'
@@ -77,6 +81,7 @@ def newpost():
     return jsonify({"status": "ok", "post_id": post.id})
 
 @app.route('/post/<post_id>', methods=['GET'])
+@jwt_required()
 def getpost(post_id):
     post = models.Post.query.get(post_id)
     if post is None:
@@ -147,9 +152,20 @@ def analytics():
     }
     return jsonify(stats)
 
-'''
-@app.route('/activity', methods=['GET'])
-''' 
+@app.route('/activity/<user_id>', methods=['GET'])
+def activity(user_id):
+    user = models.User.query.get(user_id)
+    if user is None:
+        return jsonify({
+            "status": "error",
+            "error": "user not found"
+        }), 404
+
+    return jsonify({
+        "status": "ok",
+        "last_login_time": user.last_login_time,
+        "last_request_time": user.last_request_time
+    })
 
 if __name__ == '__main__':
     app.debug = True
